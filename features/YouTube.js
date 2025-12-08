@@ -45,7 +45,7 @@ export default async function youtubeBot(client, config) {
             if (channel?.isTextBased()) {
                 await channel.send(
                     `No YouTube channels are currently being watched. ` +
-                    `Use \`${config.prefix}watch https://www.youtube.com/channel/CHANNEL_ID\` to add one!`
+                    `Use \`${config.prefix}watch {YouTube channel ID}\` to add one!`
                 );
                 console.log("[YouTube] Requested a channel to watch.");
             }
@@ -57,37 +57,24 @@ export default async function youtubeBot(client, config) {
         if (!message.content.startsWith(`${config.prefix}watch`) || message.author.bot) return;
 
         const args = message.content.split(" ").slice(1);
-        const url = args[0];
-        if (!url) return message.reply("Please provide a YouTube channel URL.");
+        const channelId = args[0];
+        if (!channelId) return message.reply("Please provide a YouTube channel ID.");
 
-        // Only allow /channel/ links
-        if (!url.includes("/channel/")) {
-            return message.reply("Only /channel/ URLs are supported. Example: https://www.youtube.com/channel/CHANNEL_ID");
+        // Optional: validate format of channel ID
+        if (!/^UC[a-zA-Z0-9_-]{22}$/.test(channelId)) {
+            return message.reply("Invalid YouTube channel ID. A valid ID starts with 'UC' and is 24 characters long.");
         }
 
-        const channelId = url.split("/channel/")[1].split("/")[0];
-
-        // Fetch RSS feed immediately to get channel name
-        let channelName = channelId; // fallback
-        try {
-            const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
-            const xml = await res.text();
-            const titles = [...xml.matchAll(/<title>(.*?)<\/title>/g)].map(m => m[1]);
-            channelName = titles[0] || channelId;
-        } catch (err) {
-            console.error(`Failed to fetch RSS feed for ${channelId}:`, err);
-        }
-
-        // Check if already being watched
+        // Load existing channels
         const channels = await loadChannels();
+
         if (channels.includes(channelId)) {
-            return message.reply(`${channelName} is already being watched.`);
+            return message.reply(`This channel is already being watched.`);
         }
 
-        // Add and save
         channels.push(channelId);
         await saveChannels(channels);
-        message.reply(`Now watching channel: ${channelName}`);
+        message.reply(`Now watching channel ID: ${channelId}`);
     });
 
     // Main function to check all YouTube channels
