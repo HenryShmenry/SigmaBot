@@ -67,16 +67,27 @@ export default async function youtubeBot(client, config) {
 
         const channelId = url.split("/channel/")[1].split("/")[0];
 
-        // Load existing channels
-        const channels = await loadChannels();
-
-        if (channels.includes(channelId)) {
-            return message.reply(`This channel is already being watched.`);
+        // Fetch RSS feed immediately to get channel name
+        let channelName = channelId; // fallback
+        try {
+            const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
+            const xml = await res.text();
+            const titles = [...xml.matchAll(/<title>(.*?)<\/title>/g)].map(m => m[1]);
+            channelName = titles[0] || channelId;
+        } catch (err) {
+            console.error(`Failed to fetch RSS feed for ${channelId}:`, err);
         }
 
+        // Check if already being watched
+        const channels = await loadChannels();
+        if (channels.includes(channelId)) {
+            return message.reply(`${channelName} is already being watched.`);
+        }
+
+        // Add and save
         channels.push(channelId);
         await saveChannels(channels);
-        message.reply(`Now watching channel: ${channelId}`);
+        message.reply(`Now watching channel: ${channelName}`);
     });
 
     // Main function to check all YouTube channels
