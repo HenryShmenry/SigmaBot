@@ -126,7 +126,7 @@ export default async function youtubeBot(client, config) {
   }
 
   // Run on bot ready
-  client.once("ready", async () => {
+  client.once("clientReady", async () => {
     console.log(`Logged in as ${client.user.tag}`);
 
     // Prompt if channels.json is empty
