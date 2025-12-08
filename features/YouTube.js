@@ -74,16 +74,16 @@ export default async function youtubeBot(client, config) {
       const res = await fetch(url);
       const html = await res.text();
 
-      // Extract channel name
+      // Get channel name
       const nameMatch = html.match(/<meta name="title" content="([^"]+)">/);
-      channelName = nameMatch ? nameMatch[1] : null;
+      const channelName = nameMatch ? nameMatch[1] : null;
 
-      // Extract channel ID
-      const match = html.match(/"channelId":"(UC[a-zA-Z0-9_-]{22})"/);
-      if (match) {
-        channelId = match[1];
+      // Get the canonical channel ID
+      const canonicalMatch = html.match(/<link rel="canonical" href="https:\/\/www\.youtube\.com\/channel\/(UC[a-zA-Z0-9_-]{22})"/);
+      if (canonicalMatch) {
+      channelId = canonicalMatch[1];
       } else {
-        return message.reply("Could not resolve the channel ID from that URL.");
+      return message.reply("Could not resolve the channel ID from that URL.");
       }
 
       if (!channelName) channelName = channelId;
