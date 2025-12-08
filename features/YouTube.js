@@ -45,7 +45,7 @@ export default async function youtubeBot(client, config) {
             if (channel?.isTextBased()) {
                 await channel.send(
                     `No YouTube channels are currently being watched. ` +
-                    `Use \`${config.prefix}watch {YouTube channel URL}\` to add one!`
+                    `Use \`${config.prefix}watch https://www.youtube.com/channel/CHANNEL_ID\` to add one!`
                 );
                 console.log("[YouTube] Requested a channel to watch.");
             }
@@ -56,65 +56,28 @@ export default async function youtubeBot(client, config) {
     client.on("messageCreate", async (message) => {
         if (!message.content.startsWith(`${config.prefix}watch`) || message.author.bot) return;
 
-        console.log("[YouTube] watch Command initiated");
-
         const args = message.content.split(" ").slice(1);
         const url = args[0];
         if (!url) return message.reply("Please provide a YouTube channel URL.");
 
-        // Initialize variables outside
-        let channelId;
-        let channelName;
-
-        if (url.includes("/channel/")) {
-            channelId = url.split("/channel/")[1].split("/")[0];
-            channelName = channelId; // will replace with name later if you want
-        } else if (url.includes("/c/") || url.includes("/user/") || url.includes("/@")) {
-            try {
-                const res = await fetch(url, {
-                    headers: {
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-                            "AppleWebKit/537.36 (KHTML, like Gecko) " +
-                            "Chrome/120.0.0.0 Safari/537.36"
-                    }
-                });
-
-                const html = await res.text();
-
-                // Get channel name
-                const nameMatch = html.match(/<meta name="title" content="([^"]+)">/);
-                const channelName = nameMatch ? nameMatch[1] : null;
-
-                // Get the canonical channel ID
-                const canonicalMatch = html.match(/<link rel="canonical" href="https:\/\/www\.youtube\.com\/channel\/(UC[a-zA-Z0-9_-]{22})"/);
-                if (canonicalMatch) {
-                    channelId = canonicalMatch[1];
-                } else {
-                    return message.reply("Could not resolve the channel ID from that URL.");
-                }
-
-                if (!channelName) channelName = channelId;
-
-            } catch (err) {
-                console.error(err);
-                return message.reply("Failed to fetch the YouTube channel page.");
-            }
-        } else {
-            return message.reply("Invalid URL format.");
+        // Only allow /channel/ links
+        if (!url.includes("/channel/")) {
+            return message.reply("Only /channel/ URLs are supported. Example: https://www.youtube.com/channel/CHANNEL_ID");
         }
+
+        const channelId = url.split("/channel/")[1].split("/")[0];
 
         // Load existing channels
         const channels = await loadChannels();
 
         if (channels.includes(channelId)) {
-            return message.reply(`${channelName} is already being watched.`);
+            return message.reply(`This channel is already being watched.`);
         }
 
         channels.push(channelId);
         await saveChannels(channels);
-        message.reply(`Now watching channel: ${channelName}`);
+        message.reply(`Now watching channel: ${channelId}`);
     });
-
 
     // Main function to check all YouTube channels
     async function checkYouTube() {
@@ -135,9 +98,10 @@ export default async function youtubeBot(client, config) {
                 const announcementChannel = await client.channels.fetch(config.channels.announcements);
                 const logsChannel = await client.channels.fetch(config.channels.logs);
 
+                const channelName = titles[0]; // RSS feed: titles[0] is channel name
+
                 for (let i = ids.length - 1; i >= 0; i--) {
                     const videoId = ids[i];
-                    const creator = titles[0];
                     const title = titles[i + 1]; // titles[0] = channel name
                     const link = links[i + 1]; // links[0] = channel link
                     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
@@ -147,12 +111,11 @@ export default async function youtubeBot(client, config) {
 
                         if (announcementChannel?.isTextBased()) {
                             if (link.includes("/shorts/")) {
-                                await announcementChannel.send(`Check out this short: ${videoUrl} by ${creator}`);
-                                if (logsChannel?.isTextBased()) await logsChannel.send(`[YouTube] Announced short: ${title} by ${creator}`);
-                                await console.log(`[YouTube] Announced short: ${title} by ${creator}`)
+                                await announcementChannel.send(`Check out this short: ${videoUrl} by ${channelName}`);
+                                if (logsChannel?.isTextBased()) await logsChannel.send(`[YouTube] Announced short: ${title} by ${channelName}`);
                             } else {
-                                await announcementChannel.send(`Check out this video: ${videoUrl} by ${creator}`);
-                                if (logsChannel?.isTextBased()) await logsChannel.send(`[YouTube] Announced video: ${title} by ${creator}`);
+                                await announcementChannel.send(`Check out this video: ${videoUrl} by ${channelName}`);
+                                if (logsChannel?.isTextBased()) await logsChannel.send(`[YouTube] Announced video: ${title} by ${channelName}`);
                             }
                         }
                     }
