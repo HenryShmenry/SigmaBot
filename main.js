@@ -25,4 +25,6 @@ if (config.features.youtubeChecker) {
     }
 }
 
+await promptForChannel(client, config);
+
 client.login(config.token);

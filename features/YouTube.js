@@ -1,7 +1,43 @@
 import fetch from "node-fetch";
 import { promises as fs } from "fs";
 
+
+
+const ytdl = require('ytdl-core'); // optional if you need YouTube info
+
+client.on('messageCreate', async (message) => {
+  if (!message.content.startsWith(`${config.prefix}watch`) || message.author.bot) return;
+
+  const args = message.content.split(' ').slice(1);
+  const url = args[0];
+  if (!url) return message.reply('Please provide a YouTube channel URL.');
+
+  // Extract the channel ID from URL
+  let channelId;
+  if (url.includes('/channel/')) {
+    channelId = url.split('/channel/')[1].split('/')[0];
+  } else if (url.includes('/c/') || url.includes('/user/')) {
+    // Optional: handle custom URLs with ytdl or YouTube API
+    return message.reply('Custom URLs are not supported yet.');
+  } else {
+    return message.reply('Invalid URL.');
+  }
+
+  // Read channels.json
+  const channels = JSON.parse(fs.readFileSync('./channels.json', 'utf-8'));
+    
+  if (channels.includes(channelId)) {
+    return message.reply('This channel is already being watched.');
+  }
+
+  channels.push(channelId);
+  await fs.writeFile('./channels.json', JSON.stringify(channels, null, 2));
+  message.reply(`Now watching channel: ${channelId}`);
+});
+
 const FILE_PATH = "./AnnouncedUploads.json";
+const Parser = require('rss-parser');
+const parser = new Parser();
 
 async function loadSeenVideos() {
   try {
@@ -26,9 +62,10 @@ export default async function youtubeChecker(client, config) {
     console.log("[YouTube] Checking feed...");
 
     try {
-      const res = await fetch(
-        `https://www.youtube.com/feeds/videos.xml?channel_id=${config.youtube.channelId}`
-      );
+      const channelIds = JSON.parse(await fs.readFile('./channels.json', 'utf-8'));
+
+      for (const channelId of channelIds) {
+      const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
       const xml = await res.text();
 
       const ids = [...xml.matchAll(/<yt:videoId>(.*?)<\/yt:videoId>/g)].map(m => m[1]);
@@ -56,7 +93,7 @@ export default async function youtubeChecker(client, config) {
           const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
           if (link.includes("/shorts/")) {
             if (channel?.isTextBased()) {
-            await channel.send(`<@&${config.roles.yts_ping}> Check out this short: ${videoUrl}`);
+            await channel.send(`Check out this short: ${videoUrl}`);
             console.log(`[YouTube] Announced short: ${title}`);
             if (Logs?.isTextBased()) {
               await Logs.send(`[YouTube] Announced short: ${title}`);
@@ -64,7 +101,7 @@ export default async function youtubeChecker(client, config) {
           }
         } else {
           if (channel?.isTextBased()) {
-            await channel.send(`<@&${config.roles.yt_ping}> Check out this video: ${videoUrl}`);
+            await channel.send(`Check out this video: ${videoUrl}`);
             console.log(`[YouTube] Announced video: ${title}`);
             if (Logs?.isTextBased()) {
               await Logs.send(`[YouTube] Announced video: ${title}`);
@@ -74,6 +111,7 @@ export default async function youtubeChecker(client, config) {
           newVideos++;
         }
       }
+    }
 
       if (newVideos > 0) {
         await saveSeenVideos(seenVideos);
