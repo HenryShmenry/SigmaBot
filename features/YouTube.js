@@ -52,9 +52,10 @@ export default async function youtubeBot(client, config) {
         }
     }
 
+    const seenVideos = await loadSeenVideos();
+
     // Helper: check a single channel and announce videos
     async function checkYouTubeForChannel(channelId) {
-        const seenVideos = await loadSeenVideos();
         try {
             const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
             const xml = await res.text();
