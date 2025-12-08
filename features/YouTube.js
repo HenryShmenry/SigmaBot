@@ -45,7 +45,7 @@ export default async function youtubeBot(client, config) {
             if (channel?.isTextBased()) {
                 await channel.send(
                     `No YouTube channels are currently being watched. ` +
-                    `Use \`${config.prefix}watch {YouTube channel ID}\` to add one!`
+                    `Use \`${config.prefix}watch {YOUTUBE_CHANNEL_ID}\` to add one!`
                 );
                 console.log("[YouTube] Requested a channel to watch.");
             }
