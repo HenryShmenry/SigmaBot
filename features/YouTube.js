@@ -54,38 +54,60 @@ export default async function youtubeBot(client, config) {
 
   // Handle !watch command
   client.on("messageCreate", async (message) => {
-    if (!message.content.startsWith(`${config.prefix}watch`) || message.author.bot) return;
+  if (!message.content.startsWith(`${config.prefix}watch`) || message.author.bot) return;
 
-    const args = message.content.split(" ").slice(1);
-    const url = args[0];
-    if (!url) return message.reply("Please provide a YouTube channel URL.");
+  console.log("[YouTube] watch Command initiated");
 
-    // Extract channel ID
-    let channelId;
-    if (url.includes("/channel/")) {
-      channelId = url.split("/channel/")[1].split("/")[0];
-    } else if (url.includes("/c/") || url.includes("/user/") || url.includes("/@")) {
-        const res = await fetch(url);
-        const html = await res.text();
-        const nameMatch = html.match(/<meta name="title" content="([^"]+)">/);
-        const channelName = nameMatch ? nameMatch[1] : channelId;
+  const args = message.content.split(" ").slice(1);
+  const url = args[0];
+  if (!url) return message.reply("Please provide a YouTube channel URL.");
 
-        const match = html.match(/"channelId":"(UC[a-zA-Z0-9_-]{22})"/);
-        if (match) {
-        const channelId = match[1];
-        return channelId;
-        }
+  // Initialize variables outside
+  let channelId;
+  let channelName;
+
+  if (url.includes("/channel/")) {
+    channelId = url.split("/channel/")[1].split("/")[0];
+    channelName = channelId; // will replace with name later if you want
+  } else if (url.includes("/c/") || url.includes("/user/") || url.includes("/@")) {
+    try {
+      const res = await fetch(url);
+      const html = await res.text();
+
+      // Extract channel name
+      const nameMatch = html.match(/<meta name="title" content="([^"]+)">/);
+      channelName = nameMatch ? nameMatch[1] : null;
+
+      // Extract channel ID
+      const match = html.match(/"channelId":"(UC[a-zA-Z0-9_-]{22})"/);
+      if (match) {
+        channelId = match[1];
+      } else {
+        return message.reply("Could not resolve the channel ID from that URL.");
+      }
+
+      if (!channelName) channelName = channelId;
+
+    } catch (err) {
+      console.error(err);
+      return message.reply("Failed to fetch the YouTube channel page.");
     }
+  } else {
+    return message.reply("Invalid URL format.");
+  }
 
-    const channels = await loadChannels();
-    if (channels.includes(channelId)) {
-      return message.reply(`${channelName} is already being watched.`);
-    }
+  // Load existing channels
+  const channels = await loadChannels();
 
-    channels.push(channelId);
-    await saveChannels(channels);
-    message.reply(`Now watching channel: ${channelName}`);
-  });
+  if (channels.includes(channelId)) {
+    return message.reply(`${channelName} is already being watched.`);
+  }
+
+  channels.push(channelId);
+  await saveChannels(channels);
+  message.reply(`Now watching channel: ${channelName}`);
+});
+
 
   // Main function to check all YouTube channels
   async function checkYouTube() {
