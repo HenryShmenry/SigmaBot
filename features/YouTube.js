@@ -99,6 +99,7 @@ export default async function youtubeBot(client, config) {
 
         for (let i = ids.length - 1; i >= 0; i--) {
           const videoId = ids[i];
+          const creator = titles[0];
           const title = titles[i + 1]; // titles[0] = channel name
           const link = links[i + 1]; // links[0] = channel link
           const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
@@ -108,11 +109,12 @@ export default async function youtubeBot(client, config) {
 
             if (announcementChannel?.isTextBased()) {
               if (link.includes("/shorts/")) {
-                await announcementChannel.send(`Check out this short: ${videoUrl}`);
-                if (logsChannel?.isTextBased()) await logsChannel.send(`[YouTube] Announced short: ${title}`);
+                await announcementChannel.send(`Check out this short: ${videoUrl} by ${creator}`);
+                if (logsChannel?.isTextBased()) await logsChannel.send(`[YouTube] Announced short: ${title} by ${creator}`);
+                await console.log(`[YouTube] Announced short: ${title} by ${creator}`)
               } else {
-                await announcementChannel.send(`Check out this video: ${videoUrl}`);
-                if (logsChannel?.isTextBased()) await logsChannel.send(`[YouTube] Announced video: ${title}`);
+                await announcementChannel.send(`Check out this video: ${videoUrl} by ${creator}`);
+                if (logsChannel?.isTextBased()) await logsChannel.send(`[YouTube] Announced video: ${title} by ${creator}`);
               }
             }
           }
