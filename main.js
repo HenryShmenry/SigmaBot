@@ -9,7 +9,7 @@ const client = new Client({
   ],
 });
 
-client.once("ready", () => {
+client.once("clientReady", () => {
   console.log(`SigmaBot: ${config.edition}`)
   console.log(`Bot is online | Prefix: ${config.prefix}`);
 });
