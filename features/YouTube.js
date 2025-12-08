@@ -64,18 +64,27 @@ export default async function youtubeBot(client, config) {
     let channelId;
     if (url.includes("/channel/")) {
       channelId = url.split("/channel/")[1].split("/")[0];
-    } else {
-      return message.reply("Only /channel/ URLs are supported right now.");
+    } else if (url.includes("/c/") || url.includes("/user/") || url.includes("/@")) {
+        const res = await fetch(url);
+        const html = await res.text();
+        const nameMatch = html.match(/<meta name="title" content="([^"]+)">/);
+        const channelName = nameMatch ? nameMatch[1] : channelId;
+
+        const match = html.match(/"channelId":"(UC[a-zA-Z0-9_-]{22})"/);
+        if (match) {
+        const channelId = match[1];
+        return channelId;
+        }
     }
 
     const channels = await loadChannels();
     if (channels.includes(channelId)) {
-      return message.reply("This channel is already being watched.");
+      return message.reply(`${channelName} is already being watched.`);
     }
 
     channels.push(channelId);
     await saveChannels(channels);
-    message.reply(`Now watching channel: ${channelId}`);
+    message.reply(`Now watching channel: ${channelName}`);
   });
 
   // Main function to check all YouTube channels
