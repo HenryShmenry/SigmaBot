@@ -52,6 +52,52 @@ export default async function youtubeBot(client, config) {
         }
     }
 
+    // Helper: check a single channel and announce videos
+    async function checkYouTubeForChannel(channelId) {
+        const seenVideos = await loadSeenVideos();
+        try {
+            const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
+            const xml = await res.text();
+
+            const ids = [...xml.matchAll(/<yt:videoId>(.*?)<\/yt:videoId>/g)].map(m => m[1]);
+            const titles = [...xml.matchAll(/<title>(.*?)<\/title>/g)].map(m => m[1]);
+            const links = [...xml.matchAll(/<link rel="alternate" href="([^"]+)"/g)].map(m => m[1]);
+
+            const announcementChannel = await client.channels.fetch(config.channels.announcements);
+            const logsChannel = await client.channels.fetch(config.channels.logs);
+
+            const channelName = titles[0]; // RSS feed: titles[0] is channel name
+            console.log(`[YouTube] Checking ${channelName}`);
+
+            for (let i = ids.length - 1; i >= 0; i--) {
+                const videoId = ids[i];
+                const title = titles[i + 1]; // titles[0] = channel name
+                const link = links[i + 1];   // links[0] = channel link
+                const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+                if (!seenVideos.has(videoId)) {
+                    seenVideos.add(videoId);
+
+                    if (announcementChannel?.isTextBased()) {
+                        if (link.includes("/shorts/")) {
+                            await announcementChannel.send(`Check out this short: ${videoUrl} by ${channelName}`);
+                            if (logsChannel?.isTextBased()) await logsChannel.send(`[YouTube] Announced short: ${title} by ${channelName}`);
+                            console.log(`[YouTube] Announced short: ${title} by ${channelName}`);
+                        } else {
+                            await announcementChannel.send(`Check out this video: ${videoUrl} by ${channelName}`);
+                            if (logsChannel?.isTextBased()) await logsChannel.send(`[YouTube] Announced video: ${title} by ${channelName}`);
+                            console.log(`[YouTube] Announced video: ${title} by ${channelName}`);
+                        }
+                    }
+                }
+            }
+
+            await saveSeenVideos(seenVideos);
+        } catch (err) {
+            console.error(`[YouTube] Failed to check feed for ${channelId}:`, err);
+        }
+    }
+
     // Handle !watch command
     client.on("messageCreate", async (message) => {
         if (!message.content.startsWith(`${config.prefix}watch`) || message.author.bot) return;
@@ -67,14 +113,28 @@ export default async function youtubeBot(client, config) {
 
         // Load existing channels
         const channels = await loadChannels();
-
         if (channels.includes(channelId)) {
             return message.reply(`This channel is already being watched.`);
         }
 
         channels.push(channelId);
         await saveChannels(channels);
-        message.reply(`Now watching channel ID: ${channelId}`);
+
+        // Immediately fetch RSS feed to get channel name and announce videos
+        let channelName = channelId;
+        try {
+            const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
+            const xml = await res.text();
+            const titles = [...xml.matchAll(/<title>(.*?)<\/title>/g)].map(m => m[1]);
+            if (titles[0]) channelName = titles[0];
+        } catch (err) {
+            console.error(`[YouTube] Failed to fetch RSS for ${channelId}:`, err);
+        }
+
+        message.reply(`Now watching channel: ${channelName}`);
+
+        // Immediately announce existing videos
+        await checkYouTubeForChannel(channelId);
     });
 
     // Main function to check all YouTube channels
@@ -82,51 +142,9 @@ export default async function youtubeBot(client, config) {
         const channels = await loadChannels();
         if (channels.length === 0) return;
 
-        const seenVideos = await loadSeenVideos();
-
         for (const channelId of channels) {
-            try {
-                const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
-                const xml = await res.text();
-
-                const ids = [...xml.matchAll(/<yt:videoId>(.*?)<\/yt:videoId>/g)].map(m => m[1]);
-                const titles = [...xml.matchAll(/<title>(.*?)<\/title>/g)].map(m => m[1]);
-                const links = [...xml.matchAll(/<link rel="alternate" href="([^"]+)"/g)].map(m => m[1]);
-
-                const announcementChannel = await client.channels.fetch(config.channels.announcements);
-                const logsChannel = await client.channels.fetch(config.channels.logs);
-
-                const channelName = titles[0]; // RSS feed: titles[0] is channel name
-                await console.log(`[YouTube] Checking ${channelName}`);
-
-                for (let i = ids.length - 1; i >= 0; i--) {
-                    const videoId = ids[i];
-                    const title = titles[i + 1]; // titles[0] = channel name
-                    const link = links[i + 1]; // links[0] = channel link
-                    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-
-                    if (!seenVideos.has(videoId)) {
-                        seenVideos.add(videoId);
-
-                        if (announcementChannel?.isTextBased()) {
-                            if (link.includes("/shorts/")) {
-                                await announcementChannel.send(`Check out this short: ${videoUrl} by ${channelName}`);
-                                if (logsChannel?.isTextBased()) await logsChannel.send(`[YouTube] Announced short: ${title} by ${channelName}`);
-                                await console.log(`[YouTube] Announced short: ${title} by ${channelName}`);
-                            } else {
-                                await announcementChannel.send(`Check out this video: ${videoUrl} by ${channelName}`);
-                                if (logsChannel?.isTextBased()) await logsChannel.send(`[YouTube] Announced video: ${title} by ${channelName}`);
-                                await console.log(`[YouTube] Announced video: ${title} by ${channelName}`);
-                            }
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error(`[YouTube] Failed to check feed for ${channelId}:`, err);
-            }
+            await checkYouTubeForChannel(channelId);
         }
-
-        await saveSeenVideos(seenVideos);
     }
 
     // Run on bot ready
@@ -139,6 +157,8 @@ export default async function youtubeBot(client, config) {
         // Start interval checking all channels
         const intervalMs = config.youtube.intervalMinutes * 60 * 1000;
         setInterval(checkYouTube, intervalMs);
-        checkYouTube();
+
+        // Initial check
+        await checkYouTube();
     });
 }
