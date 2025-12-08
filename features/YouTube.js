@@ -97,6 +97,7 @@ export default async function youtubeBot(client, config) {
                 const logsChannel = await client.channels.fetch(config.channels.logs);
 
                 const channelName = titles[0]; // RSS feed: titles[0] is channel name
+                await console.log(`[YouTube] Checking ${channelName}`);
 
                 for (let i = ids.length - 1; i >= 0; i--) {
                     const videoId = ids[i];
@@ -111,9 +112,11 @@ export default async function youtubeBot(client, config) {
                             if (link.includes("/shorts/")) {
                                 await announcementChannel.send(`Check out this short: ${videoUrl} by ${channelName}`);
                                 if (logsChannel?.isTextBased()) await logsChannel.send(`[YouTube] Announced short: ${title} by ${channelName}`);
+                                await console.log(`[YouTube] Announced short: ${title} by ${channelName}`);
                             } else {
                                 await announcementChannel.send(`Check out this video: ${videoUrl} by ${channelName}`);
                                 if (logsChannel?.isTextBased()) await logsChannel.send(`[YouTube] Announced video: ${title} by ${channelName}`);
+                                await console.log(`[YouTube] Announced video: ${title} by ${channelName}`);
                             }
                         }
                     }
