@@ -26,12 +26,14 @@ if (config.features.youtubeChecker) {
 }
 
 if (config.features.gooncommands) {
-  try {
-    import("./goon.js").then(mod => mod.default(client, config));
-    console.log("Goon Commands Active")
-  } catch (err) {
-    console.error("Failed to load Goon Commands script:", err);
-  }
+  import("./goon.js")
+    .then(mod => {
+      mod.default(client, config);
+      console.log("Goon Commands Active");
+    })
+    .catch(err => {
+      console.error("Failed to load Goon Commands script:", err);
+    });
 }
 
 client.login(config.token);
